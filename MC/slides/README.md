@@ -2,6 +2,16 @@
 
 This folder contains the oral-presentation deck.
 
+Current structure: 18 slides.  Part 0 presents the article, then each question starts with
+one prompt slide followed by short answer slides with selected code snippets, notebook plots,
+and comments.
+
+The notebook plots currently used were extracted from:
+
+```text
+C:\Users\nicol\Downloads\mc-2 (3).ipynb
+```
+
 Run locally from `MC/slides`:
 
 ```powershell

@@ -82,9 +82,9 @@ ul {
 }
 
 .reveal h2 {
-  font-size: 58px;
+  font-size: 52px;
   line-height: 1.08;
-  margin-bottom: 50px;
+  margin-bottom: 34px;
   max-width: 980px;
 }
 
@@ -101,6 +101,7 @@ ul {
   margin-top: 15px;
 }
 
+.two-col,
 .article-grid {
   border-top: 1px solid var(--line);
   display: grid;
@@ -110,10 +111,15 @@ ul {
   padding-top: 26px;
 }
 
+.article-body {
+  margin-top: 34px;
+}
+
 .plain-text,
-.formula {
+.formula,
+.two-col p {
   color: var(--ink);
-  font-size: 26px;
+  font-size: 25px;
   line-height: 1.22;
 }
 
@@ -123,7 +129,8 @@ ul {
   padding: 20px 22px 14px;
 }
 
-.article-points {
+.article-points,
+.small-list {
   border-top: 1px solid var(--line);
   color: var(--ink);
   font-size: 24px;
@@ -134,7 +141,34 @@ ul {
   padding-top: 18px;
 }
 
-.article-points li {
+.question-cover {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.question-cover .eyebrow {
+  margin-bottom: 38px;
+}
+
+.question-cover h2 {
+  font-size: 55px;
+  line-height: 1.12;
+  max-width: 1030px;
+}
+
+.question-text {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 30px;
+  line-height: 1.22;
+  margin-top: 38px;
+  max-width: 900px;
+  padding-top: 22px;
+}
+
+.article-points li,
+.small-list li {
   margin-bottom: 10px;
 }
 
@@ -163,6 +197,73 @@ ul {
 
 .placeholder li {
   margin-bottom: 18px;
+}
+
+.code-slide pre {
+  background: #f4f4ef;
+  border: 1px solid var(--line);
+  box-shadow: none;
+  margin: 0;
+  padding: 22px 26px;
+  width: 100%;
+}
+
+.code-slide code {
+  color: var(--ink);
+  display: block;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 22px;
+  line-height: 1.35;
+  max-height: 360px;
+  overflow: hidden;
+  white-space: pre;
+}
+
+.comment {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 24px;
+  line-height: 1.24;
+  margin-top: 22px;
+  padding-top: 15px;
+}
+
+.formula-small {
+  color: var(--ink);
+  font-size: 27px;
+  margin-top: 20px;
+}
+
+.plot-slide h2 {
+  font-size: 43px;
+  margin-bottom: 20px;
+}
+
+.wide-figure {
+  border: 1px solid var(--line);
+  display: block;
+  margin: 0 auto;
+  max-height: 430px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.image-pair {
+  align-items: center;
+  display: grid;
+  gap: 26px;
+  grid-template-columns: 0.85fr 1.15fr;
+}
+
+.image-pair img {
+  border: 1px solid var(--line);
+  max-height: 405px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.text-slide h2 {
+  font-size: 48px;
 }
 
 .reveal .slide-number {

@@ -2,7 +2,7 @@
 
 Viewing context: live class presentation on May 5, 2026.
 
-Principle: the slides are prompts for the oral presentation, not a written report.  Each question gets one slide only.  Speaker notes can hold reminders, but visible text stays short.
+Principle: the slides are prompts for the oral presentation, not a written report.  Each question starts with one prompt slide containing the assignment phrase, followed by short answer slides with one code idea or one plot each.
 
 ## Structure
 
@@ -12,24 +12,27 @@ Principle: the slides are prompts for the oral presentation, not a written repor
    - Visible message: the paper reduces numerical noise in posterior means.
 
 2. Question 1: sampler and data
-   - One slide.
-   - Final content should come from the final notebook.
-   - Best likely visual: trace/running mean or data overview.
+   - Prompt slide.
+   - Code slide for GARCH simulation.
+   - Code slide for random-walk Metropolis.
+   - Plot slides for simulated and real chains.
+   - Plot slide for repeated runs.
 
 3. Question 2: first-order control variate
-   - One slide.
-   - Show the regression idea and one variance comparison.
-   - Avoid too many equations on the slide.
+   - Prompt slide.
+   - Code/formula slide for the gradient.
+   - Plot slides for real and simulated variance comparisons.
 
 4. Question 3: larger dictionaries and Lasso
-   - One slide.
-   - Show why OLS gets expensive/unstable and how Lasso screens controls.
-   - Best likely visual: variance-ratio comparison or dictionary-growth plot.
+   - Prompt slide.
+   - Code slide for degree-2 controls.
+   - Code slide for Lasso screening.
+   - Plot slide for LSLASSO comparison.
 
 5. Question 4: dependence in MCMC regression
-   - One slide.
-   - Use the Q4 analysis only if it remains consistent with the final notebook.
-   - Best likely visual: split/thin/block comparison or autocorrelation reduction.
+   - Prompt slide.
+   - Concept slide on non-iid regression rows.
+   - Plot slide from the Q4 analysis on thinning/block means.
 
 ## Reveal.js implementation notes
 

@@ -11,111 +11,247 @@
   <body>
     <div class="reveal">
       <div class="slides">
-        <section class="slide article-slide" data-part="0">
+        <section class="slide article-slide">
           <div class="eyebrow">Part 0 - Article</div>
           <h1>Zero variance Markov chain Monte Carlo for Bayesian estimators</h1>
           <p class="source-line">
             A. Mira, R. Solgi and D. Imparato, <em>Statistics and Computing</em>, 2013.
           </p>
-
-          <div class="article-grid">
+          <div class="two-col article-body">
             <div>
               <h3>Question of the paper</h3>
-              <p class="plain-text">
-                How can we reduce the Monte Carlo error of posterior averages without changing
-                the target distribution?
+              <p>
+                How can we reduce the Monte Carlo error of posterior averages without
+                changing the target distribution?
               </p>
             </div>
             <div>
-              <h3>Main idea used here</h3>
-              <p class="formula">
+              <h3>Main tool</h3>
+              <p class="formula-box">
                 \[
-                  \widetilde f(x) = f(x) + a^\top z(x),
-                  \qquad
-                  z(x)=-\frac12\nabla\log\pi(x)
+                  \widetilde f(x)=f(x)+a^\top z(x),
+                  \qquad z(x)=-\frac12\nabla\log\pi(x)
                 \]
               </p>
             </div>
           </div>
-
-          <ul class="article-points">
+          <ul class="small-list">
             <li>The correction has expectation zero under the posterior.</li>
-            <li>The coefficient \(a\) can be estimated by a regression on the MCMC sample.</li>
-            <li>We apply this idea to posterior means in a Bayesian GARCH(1,1) model.</li>
+            <li>The coefficient \(a\) is estimated by regression on MCMC draws.</li>
+            <li>Our example: Bayesian estimation of a GARCH(1,1) model.</li>
           </ul>
           <aside class="notes">
-            Keep this short orally: the paper is not about GARCH specifically; GARCH is the
-            numerical example we reproduce. The essential message is that once we know the
-            log-posterior gradient, we can build control variates whose expectation is zero and
-            choose their coefficient by regression.
+            Say that the paper is general. The GARCH model is the numerical example we use.
           </aside>
         </section>
 
-        <section class="slide question-slide" data-part="1">
+        <section class="slide question-cover">
           <div class="eyebrow">Question 1</div>
-          <h2>Build the posterior sampler</h2>
-          <div class="placeholder">
-            <p class="slot">To add from final notebook</p>
-            <ul>
-              <li>GARCH(1,1) model and posterior target</li>
-              <li>Random-walk Metropolis design</li>
-              <li>Simulated data first, then EUR/USD returns</li>
-            </ul>
-          </div>
-          <aside class="notes">
-            Later: add the final trace / running mean diagnostic and say why posterior mean need
-            not exactly equal the data-generating parameter for one finite simulated dataset.
-          </aside>
+          <h2>Implement a random-walk Metropolis sampler for the GARCH posterior</h2>
+          <p class="question-text">
+            Use simulated data first, then real log-returns computed from exchange rates.
+          </p>
         </section>
 
-        <section class="slide question-slide" data-part="2">
+        <section class="slide code-slide">
+          <div class="eyebrow">Q1 - model</div>
+          <h2>We simulate from the same GARCH recursion</h2>
+          <pre><code>def simulate_garch(w1, w2, w3, T=3000):
+    r = np.zeros(T)
+    h = np.zeros(T)
+    h[0] = w1 / (1 - w2 - w3)
+
+    for t in range(1, T):
+        h[t] = w1 + w3 * h[t-1] + w2 * r[t-1]**2
+        r[t] = rng.normal(0, np.sqrt(h[t]))
+
+    return r, h</code></pre>
+          <p class="comment">
+            Starting from the unconditional variance avoids an artificial warm-up in the simulated series.
+          </p>
+        </section>
+
+        <section class="slide code-slide">
+          <div class="eyebrow">Q1 - sampler</div>
+          <h2>Random-walk Metropolis in the constrained parameter space</h2>
+          <pre><code>proposal_w = current_w + rng.normal(0, step_sizes, 3)
+proposal_lp = log_prior(proposal_w)
+
+if proposal_lp > -np.inf:
+    proposal_ll = log_likelihood(proposal_w, r)
+    log_ratio = (proposal_ll + proposal_lp) - (current_ll + current_lp)
+
+    if np.log(rng.random()) &lt; log_ratio:
+        current_w = proposal_w</code></pre>
+          <p class="comment">
+            Acceptance rates in the final notebook: about 25% on simulated data and 36% on real data.
+          </p>
+        </section>
+
+        <section class="slide plot-slide">
+          <div class="eyebrow">Q1 - simulated chain</div>
+          <h2>Trace and posterior distribution on simulated data</h2>
+          <div class="image-pair">
+            <img src="assets/notebook/cell_12_output_00.png" alt="Simulated trace plot" />
+            <img src="assets/notebook/cell_13_output_00.png" alt="Simulated posterior histograms" />
+          </div>
+          <p class="comment">The chain explores a stable posterior region after burn-in.</p>
+        </section>
+
+        <section class="slide plot-slide">
+          <div class="eyebrow">Q1 - real data</div>
+          <h2>Same sampler on EUR/USD log-returns</h2>
+          <div class="image-pair">
+            <img src="assets/notebook/cell_18_output_00.png" alt="Real trace plot" />
+            <img src="assets/notebook/cell_19_output_00.png" alt="Real posterior histograms" />
+          </div>
+          <p class="comment">The real series gives a more irregular posterior, especially for persistence.</p>
+        </section>
+
+        <section class="slide plot-slide">
+          <div class="eyebrow">Q1 - numerical error</div>
+          <h2>We repeat MH runs to assess Monte Carlo variability</h2>
+          <img class="wide-figure" src="assets/notebook/cell_21_output_01.png" alt="Repeated MH boxplots" />
+          <p class="comment">This answers the instruction to assess numerical error instead of reporting one run only.</p>
+        </section>
+
+        <section class="slide question-cover">
           <div class="eyebrow">Question 2</div>
-          <h2>Use the paper's first-order control variate</h2>
-          <div class="placeholder">
-            <p class="slot">To add from final notebook</p>
-            <ul>
-              <li>Gradient of the GARCH log-posterior</li>
-              <li>Regression formula for the coefficient</li>
-              <li>Variance comparison: raw MC vs first-order ZV</li>
-            </ul>
-          </div>
-          <aside class="notes">
-            Keep one formula at most on the visible slide. Details can be said orally or moved
-            to speaker notes.
-          </aside>
+          <h2>Use the first-order control variate from the paper</h2>
+          <p class="question-text">
+            Explain how \(f(x)+a^\top z(x)\) is used through a linear regression.
+          </p>
         </section>
 
-        <section class="slide question-slide" data-part="3">
+        <section class="slide code-slide">
+          <div class="eyebrow">Q2 - score</div>
+          <h2>The control variate needs the gradient of the log-posterior</h2>
+          <pre><code>term = 0.5 * (r[t]**2 / h[t] - 1.0) / h[t]
+
+dh[t, 0] = 1.0 + w3 * dh[t-1, 0]
+dh[t, 1] = r[t-1]**2 + w3 * dh[t-1, 1]
+dh[t, 2] = h[t-1] + w3 * dh[t-1, 2]
+
+grad_ll += term * dh[t]</code></pre>
+          <p class="formula-small">
+            \[
+              z(w)=-\frac12\nabla \log \pi(w\mid r)
+            \]
+          </p>
+        </section>
+
+        <section class="slide plot-slide">
+          <div class="eyebrow">Q2 - result</div>
+          <h2>First-order ZV reduces variance across runs</h2>
+          <img class="wide-figure" src="assets/notebook/cell_26_output_02.png" alt="ZV comparison real data" />
+          <p class="comment">
+            On real data, the variance reduction factors are about \(2.3\), \(6.0\), and \(3.8\) for the three parameters.
+          </p>
+        </section>
+
+        <section class="slide plot-slide">
+          <div class="eyebrow">Q2 - simulated data</div>
+          <h2>The same comparison is clearer on simulated data</h2>
+          <img class="wide-figure" src="assets/notebook/cell_27_output_02.png" alt="ZV comparison simulated data" />
+          <p class="comment">
+            On simulated data, the first-order control variate reduces repeated-run variance by around \(20\) to \(27\) times.
+          </p>
+        </section>
+
+        <section class="slide question-cover">
           <div class="eyebrow">Question 3</div>
-          <h2>Scale up the control dictionary</h2>
-          <div class="placeholder">
-            <p class="slot">To add from final notebook</p>
-            <ul>
-              <li>Polynomial controls beyond degree 1</li>
-              <li>Why naive OLS becomes costly or unstable</li>
-              <li>Lasso screening versus full regression</li>
-            </ul>
-          </div>
-          <aside class="notes">
-            Later: choose one figure only, probably variance ratio or OLS/Lasso comparison.
-          </aside>
+          <h2>Use a larger set of polynomial controls and compare with Lasso</h2>
+          <p class="question-text">
+            Explain why the full regression becomes expensive, then adapt the Lasso idea.
+          </p>
         </section>
 
-        <section class="slide question-slide" data-part="4">
+        <section class="slide code-slide">
+          <div class="eyebrow">Q3 - construction</div>
+          <h2>Degree 2 controls enlarge the regression matrix</h2>
+          <pre><code>features = []
+for i in range(3):
+    features.append(Z_run[:, i])        # degree 1
+
+for i in range(3):
+    for j in range(3):
+        delta = 0.5 if i == j else 0.0
+        features.append(W_run[:, j] * Z_run[:, i] - delta)
+
+X_design = np.column_stack(features)</code></pre>
+          <p class="comment">
+            Larger dictionaries can help, but the design matrix becomes larger and more collinear.
+          </p>
+        </section>
+
+        <section class="slide code-slide">
+          <div class="eyebrow">Q3 - LSLASSO</div>
+          <h2>We screen variables by Lasso, then refit OLS</h2>
+          <pre><code>lasso = LassoCV(cv=5).fit(X_design, Y)
+active_vars = np.where(lasso.coef_ != 0)[0]
+
+if len(active_vars) &gt; 0:
+    ols = LinearRegression().fit(X_design[:, active_vars], Y)
+    estimate = ols.intercept_
+else:
+    estimate = np.mean(Y)</code></pre>
+          <p class="comment">
+            This keeps the larger candidate set without forcing OLS to use every control.
+          </p>
+        </section>
+
+        <section class="slide plot-slide">
+          <div class="eyebrow">Q3 - result</div>
+          <h2>LSLASSO gives a more stable comparison</h2>
+          <img class="wide-figure" src="assets/notebook/cell_30_output_00.png" alt="LSLASSO comparison" />
+          <p class="comment">
+            The boxplots compare the ordinary MCMC mean with the LSLASSO-corrected estimator.
+          </p>
+        </section>
+
+        <section class="slide question-cover">
           <div class="eyebrow">Question 4</div>
-          <h2>Regression is fitted on dependent samples</h2>
-          <div class="placeholder">
-            <p class="slot">To add from final notebook / Q4 analysis</p>
-            <ul>
-              <li>OLS interpretation is not iid</li>
-              <li>Repeated chains and batch means for numerical error</li>
-              <li>Possible fixes: split chain, thinning, block averages</li>
-            </ul>
+          <h2>Is ordinary linear regression valid on an MCMC sample?</h2>
+          <p class="question-text">
+            Think about dependence, and possible fixes such as thinning or block averages.
+          </p>
+        </section>
+
+        <section class="slide text-slide">
+          <div class="eyebrow">Q4 - issue</div>
+          <h2>The regression rows are not iid</h2>
+          <div class="two-col">
+            <div>
+              <p>
+                Consecutive Metropolis-Hastings draws are autocorrelated.  So the OLS
+                coefficient can be useful, but iid regression standard errors are not the
+                right error assessment.
+              </p>
+            </div>
+            <div>
+              <p class="formula-box">
+                \[
+                  n_{\mathrm{eff}}
+                  \approx
+                  \frac{n}{1+2\sum_{k\ge 1}\rho_k}
+                \]
+              </p>
+            </div>
           </div>
-          <aside class="notes">
-            This slide can use the Q4 boxplots or autocorrelation figure already generated in
-            MC/q4, but we should wait for the final notebook before deciding the exact visual.
-          </aside>
+          <ul class="small-list">
+            <li>Use repeated independent chains for boxplots.</li>
+            <li>Use batch means for standard errors.</li>
+            <li>Fit regression on thinned samples or block averages.</li>
+          </ul>
+        </section>
+
+        <section class="slide plot-slide">
+          <div class="eyebrow">Q4 - check</div>
+          <h2>Thinning and block means reduce visible dependence</h2>
+          <img class="wide-figure" src="assets/q4/q4_acf_reduction.png" alt="Autocorrelation reduction" />
+          <p class="comment">
+            This is our practical answer: keep the control variate, but assess error with MCMC-aware diagnostics.
+          </p>
         </section>
       </div>
     </div>
