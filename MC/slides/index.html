@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Control Variates for a GARCH Model</title>
+    <link rel="stylesheet" href="vendor/reveal/dist/reveal.css" />
+    <link rel="stylesheet" href="vendor/katex/dist/katex.min.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section class="slide article-slide" data-part="0">
+          <div class="eyebrow">Part 0 · Article</div>
+          <div class="article-grid">
+            <div class="article-main">
+              <h1>Zero-variance control variates for MCMC</h1>
+              <p class="subtitle">
+                The article gives a practical way to reduce the numerical noise of posterior
+                averages by using the score of the target density.
+              </p>
+              <div class="source-line">
+                Mira, Solgi &amp; Imparato · <em>Statistics and Computing</em> · 2013
+              </div>
+            </div>
+            <div class="mechanism" aria-label="Method sketch">
+              <div class="node">MCMC draws</div>
+              <div class="arrow">→</div>
+              <div class="node">score<br /><span>∇ log π</span></div>
+              <div class="arrow">→</div>
+              <div class="node accent">lower-variance<br />estimate</div>
+            </div>
+          </div>
+          <div class="takeaway-strip">
+            <p><span>Problem</span> posterior means from a random-walk chain are noisy.</p>
+            <p><span>Idea</span> add a mean-zero correction built from the gradient.</p>
+            <p><span>Our project</span> test it on a Bayesian GARCH(1,1) model.</p>
+          </div>
+          <aside class="notes">
+            Keep this short orally: the paper is not about GARCH specifically; GARCH is the
+            numerical example we reproduce. The essential message is that once we know the
+            log-posterior gradient, we can build control variates whose expectation is zero and
+            choose their coefficient by regression.
+          </aside>
+        </section>
+
+        <section class="slide question-slide" data-part="1">
+          <div class="eyebrow">Question 1</div>
+          <h2>Build the posterior sampler</h2>
+          <div class="placeholder">
+            <p class="slot">Final content to insert from notebook</p>
+            <ul>
+              <li>GARCH(1,1) model and posterior target</li>
+              <li>Random-walk Metropolis design</li>
+              <li>Simulated data first, then EUR/USD returns</li>
+            </ul>
+          </div>
+          <aside class="notes">
+            Later: add the final trace / running mean diagnostic and say why posterior mean need
+            not exactly equal the data-generating parameter for one finite simulated dataset.
+          </aside>
+        </section>
+
+        <section class="slide question-slide" data-part="2">
+          <div class="eyebrow">Question 2</div>
+          <h2>Use the paper’s first-order control variate</h2>
+          <div class="placeholder">
+            <p class="slot">Final content to insert from notebook</p>
+            <ul>
+              <li>Gradient of the GARCH log-posterior</li>
+              <li>Regression formula for the coefficient</li>
+              <li>Variance comparison: raw MC vs first-order ZV</li>
+            </ul>
+          </div>
+          <aside class="notes">
+            Keep one formula at most on the visible slide. Details can be said orally or moved
+            to speaker notes.
+          </aside>
+        </section>
+
+        <section class="slide question-slide" data-part="3">
+          <div class="eyebrow">Question 3</div>
+          <h2>Scale up the control dictionary</h2>
+          <div class="placeholder">
+            <p class="slot">Final content to insert from notebook</p>
+            <ul>
+              <li>Polynomial controls beyond degree 1</li>
+              <li>Why naive OLS becomes costly or unstable</li>
+              <li>Lasso screening versus full regression</li>
+            </ul>
+          </div>
+          <aside class="notes">
+            Later: choose one figure only, probably variance ratio or OLS/Lasso comparison.
+          </aside>
+        </section>
+
+        <section class="slide question-slide" data-part="4">
+          <div class="eyebrow">Question 4</div>
+          <h2>Regression is fitted on dependent samples</h2>
+          <div class="placeholder">
+            <p class="slot">Final content to insert from Q4 analysis</p>
+            <ul>
+              <li>OLS interpretation is not iid</li>
+              <li>Repeated chains and batch means for numerical error</li>
+              <li>Possible fixes: split chain, thinning, block averages</li>
+            </ul>
+          </div>
+          <aside class="notes">
+            This slide can use the Q4 boxplots or autocorrelation figure already generated in
+            MC/q4, but we should wait for the final notebook before deciding the exact visual.
+          </aside>
+        </section>
+      </div>
+    </div>
+
+    <script src="vendor/reveal/dist/reveal.js"></script>
+    <script src="vendor/reveal/plugin/notes/notes.js"></script>
+    <script src="vendor/reveal/plugin/math/math.js"></script>
+    <script>
+      Reveal.initialize({
+        width: 1280,
+        height: 720,
+        margin: 0.045,
+        hash: true,
+        controls: true,
+        progress: true,
+        slideNumber: "c/t",
+        transition: "fade",
+        backgroundTransition: "fade",
+        center: false,
+        pdfMaxPagesPerSlide: 1,
+        katex: {
+          local: "vendor/katex"
+        },
+        plugins: [RevealNotes, RevealMath.KaTeX]
+      });
+    </script>
+  </body>
+</html>
