@@ -1,0 +1,200 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\graphicspath{{figures/}}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black}
+\newcommand{\doi}[1]{\href{https://doi.org/#1}{doi:#1}}
+
+\title{Control Variates for Bayesian Estimation of a GARCH Model}
+\author{TD project}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This note implements a random-walk Metropolis sampler for a Bayesian GARCH(1,1) model and compares plain MCMC estimates with zero-variance control variates.  The first controls are the linear-polynomial controls of Mira, Solgi and Imparato (2013).  Larger polynomial dictionaries are then handled either by ordinary least squares or by a Lasso screening step inspired by Leluc, Portier and Segers (2021).  Numerical error is assessed by independent repeated runs and by batch-means standard errors.
+\end{abstract}
+
+\section{Model and Data}
+
+For returns \(r_t\), the model is
+\[
+  r_t \mid \mathcal F_{t-1} \sim \mathcal N(0,h_t),
+  \qquad
+  h_t = \omega_1 + \omega_2 r_{t-1}^2 + \omega_3 h_{t-1}.
+\]
+The parameter vector is \(\omega=(\omega_1,\omega_2,\omega_3)\).  We use independent centered normal priors on \(\omega_i\), truncated to
+\[
+  \omega_1>0,\qquad \omega_2>0,\qquad \omega_3>0,\qquad \omega_2+\omega_3<0.995.
+\]
+The likelihood is the usual Gaussian quasi-likelihood, up to constants,
+\[
+  \ell(\omega)= -\frac12\sum_t\left\{\log h_t+\frac{r_t^2}{h_t}\right\}.
+\]
+
+Two datasets are used.  The first is simulated from
+\[
+  \omega^\star=(0.04,0.08,0.88)
+\]
+with \(600\) observations.  The second is daily EUR/USD data from 2023-01-01 to 2024-12-31, converted to percentage log-returns.  The exchange-rate data were downloaded from Frankfurter and saved locally in the project folder.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{data_overview.pdf}
+  \caption{Simulated GARCH series and EUR/USD exchange-rate data.}
+\end{figure}
+
+\section{Random-Walk Metropolis}
+
+The sampler is a random-walk Metropolis algorithm.  To avoid negative proposals and to make the target support unconstrained, the chain is run on \(\theta\in\mathbb R^3\), mapped to \(\omega\) by
+\[
+  \omega_1=e^{\theta_1},\qquad
+  \omega_2=\rho \frac{e^{\theta_2}}{1+e^{\theta_2}+e^{\theta_3}},\qquad
+  \omega_3=\rho \frac{e^{\theta_3}}{1+e^{\theta_2}+e^{\theta_3}},
+  \quad \rho=0.995.
+\]
+The transformed target includes the Jacobian of this map.  The proposal is
+\[
+  \theta'=\theta+\varepsilon,\qquad \varepsilon\sim \mathcal N(0,\mathrm{diag}(s_1^2,s_2^2,s_3^2)).
+\]
+The diagonal scale was tuned by a short pilot chain.  Each numerical experiment used \(10\) independent chains, \(4000\) Metropolis iterations per chain, burn-in \(800\), and thinning by \(2\).
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{chain_simulated.pdf}
+  \caption{Representative posterior chain for the simulated dataset.}
+\end{figure}
+
+\section{Zero-Variance Control Variates}
+
+For a target density \(\pi(x)\), Mira, Solgi and Imparato define
+\[
+  z(x)=-\frac12\nabla\log\pi(x).
+\]
+For a polynomial trial function \(P\), the controlled integrand is
+\[
+  \widetilde f(x)
+  = f(x)-\frac12\Delta P(x)+\nabla P(x)^\top z(x).
+\]
+If \(P(x)=a^\top x\), then \(\Delta P=0\) and
+\[
+  \widetilde f(x)=f(x)+a^\top z(x).
+\]
+The optimal \(a\) is obtained by minimizing the empirical variance.  Equivalently, regress \(f(x_i)\) on the control vector \(z(x_i)\); if the regression coefficient is \(\hat\beta\), the controlled estimate is
+\[
+  \widehat\mu_{\mathrm{cv}}
+  = \bar f - \bar z^\top \hat\beta.
+\]
+In this project \(x=\theta\), while \(f_j(\theta)=\omega_j(\theta)\), because the posterior summaries are desired in the original GARCH parameters.
+
+\section{Larger Dictionaries and Lasso}
+
+For all monomials up to total degree \(q\) in dimension \(d=3\), the number of non-constant polynomial controls is
+\[
+  \binom{d+q}{d}-1.
+\]
+This grows quickly: degree \(1\) gives \(3\) controls, degree \(2\) gives \(9\), and degree \(5\) gives \(55\).  Ordinary least squares on all controls can become unstable because the design matrix becomes highly collinear; it also becomes expensive when \(d\) or \(q\) is larger.
+
+Following Leluc, Portier and Segers, we use Lasso as a screening step.  The implementation standardizes the controls, computes a Lasso path by coordinate descent, selects the penalty by BIC, and finally refits ordinary least squares only on the selected controls.  This is the ``ZV-Lasso-5'' method in the tables.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\textwidth]{control_dictionary_cost.pdf}
+  \caption{Number of polynomial controls and conditioning of the OLS design.}
+\end{figure}
+
+\section{Numerical Results}
+
+The boxplots show the repeated-run variability of each posterior mean estimate.  For the simulated case, the dashed line is the data-generating value; finite-sample posterior means need not equal it.  For EUR/USD, the dashed line is the pooled raw-MC mean, used only as a visual reference.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{boxplots_simulated.pdf}
+  \caption{Repeated-run estimates for simulated GARCH data.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{boxplots_eurusd.pdf}
+  \caption{Repeated-run estimates for EUR/USD log-returns.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{variance_reduction.pdf}
+  \caption{Empirical variance reduction relative to raw Monte Carlo.  Values above \(1\) improve over MC.}
+\end{figure}
+
+\subsection{Simulated Data}
+
+\begin{table}[H]
+  \centering
+  \scriptsize
+  \resizebox{\textwidth}{!}{\input{results/summary_simulated.tex}}
+  \caption{Repeated-run summary for simulated data.  ``sd across runs'' is the empirical numerical error across the 10 independent chains.}
+\end{table}
+
+The first-order controls already reduce variance substantially.  Degree-2 controls improve further.  Degree-5 OLS is extremely effective on this low-dimensional simulated example, but this is also the setting where it is easiest for OLS to exploit the full dictionary without numerical problems.  Post-Lasso keeps fewer controls and still gives a large variance reduction.
+
+\subsection{EUR/USD Data}
+
+\begin{table}[H]
+  \centering
+  \scriptsize
+  \resizebox{\textwidth}{!}{\input{results/summary_eurusd.tex}}
+  \caption{Repeated-run summary for EUR/USD returns.  The reference for the RMSE column is the pooled raw-MC mean.}
+\end{table}
+
+For the real-data example the full degree-5 OLS estimator is less reliable: for \(\omega_1\) and \(\omega_3\) its repeated-run variance is worse than MC.  This matches the conditioning issue: a larger dictionary can help, but the naive OLS fit may become unstable.  Degree-2 OLS is robust here, and the Lasso-screened estimator improves \(\omega_2\) while avoiding the full degree-5 regression.
+
+\section{MCMC Dependence and Regression}
+
+The linear regression used to estimate control-variate coefficients is not literally an iid regression because the inputs are MCMC draws.  The coefficient estimate can still be consistent under ergodic-average conditions, but the usual iid regression standard errors are not valid.  We addressed this in two ways:
+\begin{itemize}
+  \item numerical error is reported through repeated independent chains, which directly assesses estimator variability;
+  \item batch-means standard errors are computed in the notebook for the controlled output series.
+\end{itemize}
+Other practical solutions are to estimate coefficients on a pilot chain and evaluate on a second independent chain, to fit on thinned samples, or to use block cross-validation for Lasso.
+
+\begin{table}[H]
+  \centering
+  \small
+  \input{results/bonus_thinning.tex}
+  \caption{A small thinning check on the simulated representative chain.  Thinning changes little here, suggesting that the regression fit is not dominated by adjacent highly dependent draws.}
+\end{table}
+
+\section{Conclusion}
+
+The project confirms the main message of zero-variance control variates.  Once \(\nabla\log\pi\) is available, first-order polynomial controls are easy to add to an MCMC estimator and can sharply reduce numerical error.  Higher-order controls can reduce the variance further, but the OLS regression can become ill-conditioned.  Lasso screening is a practical compromise: it lets us start from a larger control dictionary without always paying the numerical price of the full regression.
+
+\begin{thebibliography}{9}
+
+\bibitem{mira2013}
+A. Mira, R. Solgi, and D. Imparato.
+\newblock Zero variance Markov chain Monte Carlo for Bayesian estimators.
+\newblock \emph{Statistics and Computing}, 23:653--662, 2013.
+\newblock \doi{10.1007/s11222-012-9344-6}.
+
+\bibitem{leluc2021}
+R. Leluc, F. Portier, and J. Segers.
+\newblock Control variate selection for Monte Carlo integration.
+\newblock \emph{Statistics and Computing}, 31:50, 2021.
+\newblock \doi{10.1007/s11222-021-10011-z}.
+
+\bibitem{frankfurter}
+Frankfurter exchange-rate API.
+\newblock \url{https://www.frankfurter.app/docs/}.
+
+\end{thebibliography}
+
+\end{document}
