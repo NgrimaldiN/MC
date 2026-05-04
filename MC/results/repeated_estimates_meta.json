@@ -1,0 +1,10 @@
+{
+  "n_rep": 10,
+  "n_steps": 8000,
+  "burn_in": 2000,
+  "thin": 3,
+  "large_degree": 5,
+  "seed_base": 20260504,
+  "n_sim": 600,
+  "proposal": "pilot_full_covariance_v1"
+}

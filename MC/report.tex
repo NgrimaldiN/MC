@@ -54,6 +54,12 @@ with \(600\) observations.  The second is daily EUR/USD data from 2023-01-01 to 
   \caption{Simulated GARCH series and EUR/USD exchange-rate data.}
 \end{figure}
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{data_diagnostics.pdf}
+  \caption{Extra data diagnostics: return histograms and autocorrelations of returns and squared returns.}
+\end{figure}
+
 \section{Random-Walk Metropolis}
 
 The sampler is a random-walk Metropolis algorithm.  To avoid negative proposals and to make the target support unconstrained, the chain is run on \(\theta\in\mathbb R^3\), mapped to \(\omega\) by
@@ -65,17 +71,48 @@ The sampler is a random-walk Metropolis algorithm.  To avoid negative proposals 
 \]
 The transformed target includes the Jacobian of this map.  The proposal is
 \[
-  \theta'=\theta+\varepsilon,\qquad \varepsilon\sim \mathcal N(0,\mathrm{diag}(s_1^2,s_2^2,s_3^2)).
+  \theta'=\theta+\varepsilon,\qquad \varepsilon\sim \mathcal N(0,\Sigma_q).
 \]
-The diagonal scale was tuned by a short pilot chain.  Each numerical experiment used \(10\) independent chains, \(4000\) Metropolis iterations per chain, burn-in \(800\), and thinning by \(2\).
+We first tune a diagonal proposal by short pilot runs, then estimate the covariance of \(\theta\) from a pilot chain and set \(\Sigma_q\) proportional to that empirical covariance.  This reuses the TD Metropolis-Hastings idea of choosing a proposal variance adapted to the target shape.  Each numerical experiment used \(10\) independent chains, \(8000\) Metropolis iterations per chain, burn-in \(2000\), and thinning by \(3\).  This is longer than the first draft because short trace plots may show local upward or downward excursions.  Those excursions are normal for a correlated random-walk chain; the more relevant checks are the running mean, autocorrelation, and repeated independent chains.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{chain_simulated.pdf}
-  \caption{Representative posterior chain for the simulated dataset.}
+  \caption{Representative chain diagnostics for the simulated dataset.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{chain_eurusd.pdf}
+  \caption{Representative chain diagnostics for EUR/USD.}
 \end{figure}
 
 \section{Zero-Variance Control Variates}
+
+The control variates require the score of the posterior.  For the likelihood part, set \(D_{t,k}=\partial h_t/\partial \omega_k\).  With fixed initial variance \(h_1\), \(D_{1,k}=0\), and for \(t\ge 2\)
+\[
+  D_{t,1}=1+\omega_3D_{t-1,1},\qquad
+  D_{t,2}=r_{t-1}^2+\omega_3D_{t-1,2},\qquad
+  D_{t,3}=h_{t-1}+\omega_3D_{t-1,3}.
+\]
+Since
+\[
+  \ell(\omega)= -\frac12\sum_{t=1}^T\left\{\log h_t+\frac{r_t^2}{h_t}\right\},
+\]
+the gradient of the log-likelihood is
+\[
+  \frac{\partial\ell}{\partial\omega_k}
+  =
+  \frac12\sum_{t=1}^T
+  \left(\frac{r_t^2}{h_t^2}-\frac1{h_t}\right)D_{t,k}.
+\]
+The prior adds \(-\omega_k/\sigma_k^2\).  The sampler is implemented in \(\theta\), so the code applies
+\[
+  \nabla_\theta \log\pi_\theta(\theta)
+  =
+  J_{\omega}(\theta)^\top\nabla_\omega \log\pi_\omega(\omega(\theta))
+  +\nabla_\theta \log|\det J_{\omega}(\theta)|.
+\]
 
 For a target density \(\pi(x)\), Mira, Solgi and Imparato define
 \[
@@ -113,6 +150,12 @@ Following Leluc, Portier and Segers, we use Lasso as a screening step.  The impl
   \caption{Number of polynomial controls and conditioning of the OLS design.}
 \end{figure}
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{step3_variance_comparison.pdf}
+  \caption{Step 3 variance comparison.  The figure compares first-order controls, full degree-5 OLS, and degree-5 Lasso screening.}
+\end{figure}
+
 \section{Numerical Results}
 
 The boxplots show the repeated-run variability of each posterior mean estimate.  For the simulated case, the dashed line is the data-generating value; finite-sample posterior means need not equal it.  For EUR/USD, the dashed line is the pooled raw-MC mean, used only as a visual reference.
@@ -133,6 +176,24 @@ The boxplots show the repeated-run variability of each posterior mean estimate. 
   \centering
   \includegraphics[width=\textwidth]{variance_reduction.pdf}
   \caption{Empirical variance reduction relative to raw Monte Carlo.  Values above \(1\) improve over MC.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{first_order_variance_only.pdf}
+  \caption{Variance comparison for the first-order control-variate step only.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{posterior_pairs_simulated.pdf}
+  \caption{Posterior pair plot for the simulated dataset.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{posterior_pairs_eurusd.pdf}
+  \caption{Posterior pair plot for EUR/USD.}
 \end{figure}
 
 \subsection{Simulated Data}
@@ -156,6 +217,22 @@ The first-order controls already reduce variance substantially.  Degree-2 contro
 \end{table}
 
 For the real-data example the full degree-5 OLS estimator is less reliable: for \(\omega_1\) and \(\omega_3\) its repeated-run variance is worse than MC.  This matches the conditioning issue: a larger dictionary can help, but the naive OLS fit may become unstable.  Degree-2 OLS is robust here, and the Lasso-screened estimator improves \(\omega_2\) while avoiding the full degree-5 regression.
+
+\subsection{Focused Variance Tables}
+
+\begin{table}[H]
+  \centering
+  \scriptsize
+  \resizebox{\textwidth}{!}{\input{results/first_order_variance.tex}}
+  \caption{Variance comparison for the first-order control-variate step only.}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \scriptsize
+  \resizebox{\textwidth}{!}{\input{results/step3_variance.tex}}
+  \caption{Step 3 variance comparison: full degree-5 OLS versus Lasso-screened degree-5 controls.}
+\end{table}
 
 \section{MCMC Dependence and Regression}
 

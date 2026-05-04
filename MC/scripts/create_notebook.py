@@ -112,12 +112,22 @@ def main() -> None:
             TRUE_OMEGA = np.array([0.04, 0.08, 0.88])
             N_SIM = 600
             N_REP = 10
-            N_STEPS = 4000
-            BURN_IN = 800
-            THIN = 2
+            N_STEPS = 8000
+            BURN_IN = 2000
+            THIN = 3
             LARGE_DEGREE = 5
             SEED_BASE = 20260504
             USE_CACHED_RESULTS = True
+            CACHE_SIGNATURE = {
+                "n_rep": N_REP,
+                "n_steps": N_STEPS,
+                "burn_in": BURN_IN,
+                "thin": THIN,
+                "large_degree": LARGE_DEGREE,
+                "seed_base": SEED_BASE,
+                "n_sim": N_SIM,
+                "proposal": "pilot_full_covariance_v1",
+            }
 
             simulated_returns, simulated_h = g.simulate_garch(N_SIM, TRUE_OMEGA, seed=SEED_BASE)
 
@@ -152,10 +162,57 @@ def main() -> None:
         ),
         md(
             r"""
+            ## Additional data plots
+
+            The next plots are useful for the oral presentation because they show why a conditional-variance model is reasonable.  The histograms summarize the marginal returns; the autocorrelation panels compare the raw returns with squared returns.  In a GARCH-type series, raw returns often have weak autocorrelation, while squared returns retain visible dependence.
+            """
+        ),
+        code(
+            r"""
+            def autocorrelation(x, max_lag=35):
+                x = np.asarray(x, dtype=float)
+                x = x - x.mean()
+                denom = np.dot(x, x)
+                if denom <= 0:
+                    return np.zeros(max_lag + 1)
+                return np.array([1.0] + [np.dot(x[:-lag], x[lag:]) / denom for lag in range(1, max_lag + 1)])
+
+            def plot_data_diagnostics():
+                datasets = {
+                    "simulated": simulated_returns,
+                    "eurusd": real_returns,
+                }
+                fig, axes = plt.subplots(2, 3, figsize=(12.5, 6.2), constrained_layout=True)
+                for row, (dataset, values) in enumerate(datasets.items()):
+                    axes[row, 0].hist(values, bins=35, density=True, color="#4C78A8", alpha=0.75)
+                    axes[row, 0].axvline(values.mean(), color="#222222", lw=1.0, ls="--")
+                    axes[row, 0].set_title(f"{dataset}: return histogram")
+                    axes[row, 0].set_xlabel("percent log-return")
+
+                    acf_returns = autocorrelation(values, max_lag=35)
+                    acf_squared = autocorrelation(values**2, max_lag=35)
+                    lags = np.arange(acf_returns.size)
+                    axes[row, 1].bar(lags, acf_returns, color="#F58518", alpha=0.75)
+                    axes[row, 1].axhline(0.0, color="#222222", lw=0.8)
+                    axes[row, 1].set_title(f"{dataset}: ACF of returns")
+                    axes[row, 1].set_xlabel("lag")
+
+                    axes[row, 2].bar(lags, acf_squared, color="#54A24B", alpha=0.75)
+                    axes[row, 2].axhline(0.0, color="#222222", lw=0.8)
+                    axes[row, 2].set_title(f"{dataset}: ACF of squared returns")
+                    axes[row, 2].set_xlabel("lag")
+                fig.savefig(FIG_DIR / "data_diagnostics.pdf", bbox_inches="tight")
+                fig.savefig(FIG_DIR / "data_diagnostics.png", bbox_inches="tight")
+                plt.show()
+
+            plot_data_diagnostics()
+            """
+        ),
+        md(
+            r"""
             ## Random-walk Metropolis sampler
 
-            The proposal is \(\theta'=\theta+\epsilon\), with diagonal Gaussian \(\epsilon\).
-            A short pilot run tunes a common proposal scale to keep acceptance in a reasonable range.  The table below also checks the analytic gradient used by the control variates against a central finite difference.
+            The proposal is \(\theta'=\theta+\epsilon\).  We first run a diagonal random-walk pilot, then use the empirical covariance of that pilot to build a full-covariance Gaussian proposal.  This follows the TD guidance that a random-walk proposal should be scaled to the shape of the target, and it matters here because \(\omega_1\) and \(\omega_3\) are strongly correlated.  The repeated experiment below also uses longer chains than the first draft: \(8000\) iterations, burn-in \(2000\), and thinning by \(3\).  The table below checks the analytic gradient used by the control variates against a central finite difference.
             """
         ),
         code(
@@ -182,7 +239,7 @@ def main() -> None:
             tuned_scales = {}
             for dataset, returns in returns_by_dataset.items():
                 init_theta = g.omega_to_theta(init[dataset])
-                scale, rates = g.tune_rwm_scale(
+                diagonal_scale, diagonal_rates = g.tune_rwm_scale(
                     returns,
                     init_theta,
                     proposal_start[dataset],
@@ -190,18 +247,61 @@ def main() -> None:
                     n_rounds=5,
                     round_steps=650,
                 )
-                tuned_scales[dataset] = scale
+                proposal_cov, cov_rates, pilot_acceptance = g.tune_rwm_covariance(
+                    returns,
+                    init_theta,
+                    diagonal_scale,
+                    seed=SEED_BASE + 97 + len(dataset),
+                    pilot_steps=2500,
+                    pilot_burn_in=500,
+                    n_rounds=4,
+                    round_steps=700,
+                )
+                tuned_scales[dataset] = proposal_cov
                 grad_a, grad_fd, grad_diff = g.check_theta_gradient(returns, init_theta)
                 tuning_rows.append({
                     "dataset": dataset,
                     "initial_omega": np.array2string(init[dataset], precision=4),
-                    "proposal_scale": np.array2string(scale, precision=4),
-                    "pilot_acceptance": ", ".join(f"{x:.2f}" for x in rates),
+                    "diagonal_scale": np.array2string(diagonal_scale, precision=4),
+                    "proposal_cov_diag": np.array2string(np.diag(proposal_cov), precision=4),
+                    "diag_pilot_acceptance": ", ".join(f"{x:.2f}" for x in diagonal_rates),
+                    "cov_pilot_acceptance": f"{pilot_acceptance:.2f}; " + ", ".join(f"{x:.2f}" for x in cov_rates),
                     "max_gradient_error": grad_diff,
                 })
 
             tuning_table = pd.DataFrame(tuning_rows)
             tuning_table
+            """
+        ),
+        md(
+            r"""
+            ## Gradient of the GARCH likelihood
+
+            The zero-variance controls require \(\nabla \log \pi\).  For the likelihood part, write
+            \[
+            \ell(\omega)=-\frac12\sum_{t=1}^T\left\{\log h_t+\frac{r_t^2}{h_t}\right\},
+            \qquad
+            h_t=\omega_1+\omega_2 r_{t-1}^2+\omega_3 h_{t-1}.
+            \]
+            Let \(D_{t,k}=\partial h_t/\partial\omega_k\).  With fixed initial variance \(h_1\), \(D_{1,k}=0\), and for \(t\ge2\)
+            \[
+            D_{t,1}=1+\omega_3D_{t-1,1},\qquad
+            D_{t,2}=r_{t-1}^2+\omega_3D_{t-1,2},\qquad
+            D_{t,3}=h_{t-1}+\omega_3D_{t-1,3}.
+            \]
+            Therefore
+            \[
+            \frac{\partial\ell}{\partial\omega_k}
+            =\frac12\sum_{t=1}^T
+            \left(\frac{r_t^2}{h_t^2}-\frac1{h_t}\right)D_{t,k}.
+            \]
+            The prior contributes \(-\omega_k/\sigma_k^2\).  Since the sampler runs in \(\theta\), the code finally applies the chain rule
+            \[
+            \nabla_\theta \log\pi_\theta(\theta)
+            =
+            J_{\omega}(\theta)^\top\nabla_\omega \log\pi_\omega(\omega(\theta))
+            +\nabla_\theta \log \left|\det J_{\omega}(\theta)\right|.
+            \]
             """
         ),
         md(
@@ -290,8 +390,13 @@ def main() -> None:
                 return pd.concat(all_rows, ignore_index=True), representative
 
             cache_path = RESULT_DIR / "repeated_estimates.csv"
+            cache_meta_path = RESULT_DIR / "repeated_estimates_meta.json"
             representatives = {}
-            if USE_CACHED_RESULTS and cache_path.exists():
+            cache_is_current = False
+            if cache_path.exists() and cache_meta_path.exists():
+                cache_is_current = json.loads(cache_meta_path.read_text(encoding="utf-8")) == CACHE_SIGNATURE
+
+            if USE_CACHED_RESULTS and cache_is_current:
                 estimates = pd.read_csv(cache_path)
                 print(f"Loaded cached repeated estimates from {cache_path}")
                 for dataset, returns in returns_by_dataset.items():
@@ -312,6 +417,7 @@ def main() -> None:
                     representatives[dataset] = representative
                 estimates = pd.concat(results, ignore_index=True)
                 estimates.to_csv(cache_path, index=False)
+                cache_meta_path.write_text(json.dumps(CACHE_SIGNATURE, indent=2), encoding="utf-8")
             estimates.head()
             """
         ),
@@ -387,6 +493,29 @@ def main() -> None:
                 "number_of_controls": [g.count_polynomial_controls(3, d) for d in range(1, 8)],
             })
             controls_growth.to_csv(RESULT_DIR / "controls_growth.csv", index=False)
+
+            def write_compact_latex_table(df, path):
+                table = df.copy()
+                for col in table.columns:
+                    if pd.api.types.is_numeric_dtype(table[col]):
+                        table[col] = table[col].map(lambda x: latex_float(x, 4))
+                pathlib.Path(path).write_text(table.to_latex(index=False, escape=True), encoding="utf-8")
+
+            variance_summary = summary.copy()
+            variance_summary["empirical_variance"] = variance_summary["numerical_sd"] ** 2
+
+            first_order_variance = variance_summary[
+                variance_summary["method"].isin(["MC", "ZV-OLS-1"])
+            ][["dataset", "parameter", "method", "empirical_variance", "variance_reduction"]]
+            first_order_variance.to_csv(RESULT_DIR / "first_order_variance.csv", index=False)
+            write_compact_latex_table(first_order_variance, RESULT_DIR / "first_order_variance.tex")
+
+            step3_variance = variance_summary[
+                variance_summary["method"].isin(["ZV-OLS-1", f"ZV-OLS-{LARGE_DEGREE}", f"ZV-Lasso-{LARGE_DEGREE}"])
+            ][["dataset", "parameter", "method", "empirical_variance", "variance_reduction", "mean_selected", "median_condition"]]
+            step3_variance.to_csv(RESULT_DIR / "step3_variance.csv", index=False)
+            write_compact_latex_table(step3_variance, RESULT_DIR / "step3_variance.tex")
+
             controls_growth
             """
         ),
@@ -453,6 +582,37 @@ def main() -> None:
         ),
         code(
             r"""
+            def plot_variance_subset(methods, filename, title):
+                fig, axes = plt.subplots(1, 2, figsize=(11.5, 4), constrained_layout=True)
+                for ax, dataset in zip(axes, ["simulated", "eurusd"]):
+                    subset = summary[(summary["dataset"] == dataset) & (summary["method"].isin(methods))].copy()
+                    for j, param in enumerate(g.PARAMETER_NAMES):
+                        vals = [
+                            subset[
+                                (subset["parameter"] == param) &
+                                (subset["method"] == method)
+                            ]["numerical_sd"].iloc[0] ** 2
+                            for method in methods
+                        ]
+                        x = np.arange(len(methods)) + 0.24 * (j - 1)
+                        ax.bar(x, vals, width=0.22, label=param)
+                    ax.set_yscale("log")
+                    ax.set_xticks(np.arange(len(methods)))
+                    ax.set_xticklabels(methods, rotation=25, ha="right")
+                    ax.set_title(dataset)
+                    ax.set_ylabel("empirical variance across runs")
+                    ax.legend(frameon=False, fontsize=8)
+                fig.suptitle(title, y=1.03)
+                fig.savefig(FIG_DIR / f"{filename}.pdf", bbox_inches="tight")
+                fig.savefig(FIG_DIR / f"{filename}.png", bbox_inches="tight")
+                plt.show()
+
+            plot_variance_subset(["MC", "ZV-OLS-1"], "first_order_variance_only", "Variance comparison: first-order controls only")
+            plot_variance_subset(["ZV-OLS-1", f"ZV-OLS-{LARGE_DEGREE}", f"ZV-Lasso-{LARGE_DEGREE}"], "step3_variance_comparison", "Step 3 variance comparison: large dictionary vs Lasso")
+            """
+        ),
+        code(
+            r"""
             fig, ax = plt.subplots(1, 2, figsize=(10.5, 3.7), constrained_layout=True)
             ax[0].plot(controls_growth["degree"], controls_growth["number_of_controls"], marker="o", color="#4C78A8")
             ax[0].set_title("Polynomial dictionary size, d=3")
@@ -481,22 +641,71 @@ def main() -> None:
         ),
         code(
             r"""
+            def chain_acf(x, max_lag=60):
+                x = np.asarray(x, dtype=float)
+                x = x - x.mean()
+                denom = np.dot(x, x)
+                if denom <= 0:
+                    return np.zeros(max_lag + 1)
+                return np.array([1.0] + [np.dot(x[:-lag], x[lag:]) / denom for lag in range(1, max_lag + 1)])
+
             def plot_representative_chain(dataset, path_base):
                 result = representatives[dataset]
-                fig, axes = plt.subplots(3, 2, figsize=(10.5, 6.2), constrained_layout=True)
+                fig, axes = plt.subplots(3, 3, figsize=(12.5, 7.0), constrained_layout=True)
+                x_axis = np.arange(result.omega.shape[0]) * THIN + BURN_IN
                 for j, param in enumerate(g.PARAMETER_NAMES):
-                    axes[j, 0].plot(result.omega[:, j], lw=0.75, color="#4C78A8")
+                    series = result.omega[:, j]
+                    running_mean = np.cumsum(series) / np.arange(1, series.size + 1)
+                    acf = chain_acf(series, max_lag=60)
+                    axes[j, 0].plot(x_axis, series, lw=0.65, color="#4C78A8")
                     axes[j, 0].set_ylabel(param)
                     axes[j, 0].set_title(f"{param} trace")
-                    axes[j, 1].hist(result.omega[:, j], bins=35, color="#72B7B2", alpha=0.8)
-                    axes[j, 1].set_title(f"{param} marginal")
-                fig.suptitle(f"Representative chain diagnostics: {dataset}", y=1.02)
+                    axes[j, 1].plot(x_axis, running_mean, lw=1.0, color="#F58518")
+                    axes[j, 1].axhline(running_mean[-1], color="#222222", lw=0.8, ls="--")
+                    axes[j, 1].set_title(f"{param} running mean")
+                    axes[j, 2].bar(np.arange(acf.size), acf, color="#54A24B", alpha=0.75)
+                    axes[j, 2].axhline(0.0, color="#222222", lw=0.8)
+                    axes[j, 2].set_title(f"{param} chain ACF")
+                fig.suptitle(f"Representative chain diagnostics after burn-in: {dataset}", y=1.02)
                 fig.savefig(FIG_DIR / f"{path_base}.pdf", bbox_inches="tight")
                 fig.savefig(FIG_DIR / f"{path_base}.png", bbox_inches="tight")
                 plt.show()
 
             plot_representative_chain("simulated", "chain_simulated")
             plot_representative_chain("eurusd", "chain_eurusd")
+            """
+        ),
+        md(
+            r"""
+            The traces are random-walk Metropolis paths after burn-in.  Short-range upward or downward runs are expected because the samples are autocorrelated.  The relevant diagnostic is whether the running mean stabilizes and whether repeated independent chains give similar final averages; this is why the notebook uses longer chains and reports repeated-run boxplots.
+            """
+        ),
+        code(
+            r"""
+            def plot_posterior_pairs(dataset, path_base):
+                result = representatives[dataset]
+                omega = result.omega
+                step = max(1, omega.shape[0] // 1200)
+                sampled = omega[::step]
+                fig, axes = plt.subplots(3, 3, figsize=(8.3, 8.0), constrained_layout=True)
+                for i, row_param in enumerate(g.PARAMETER_NAMES):
+                    for j, col_param in enumerate(g.PARAMETER_NAMES):
+                        ax = axes[i, j]
+                        if i == j:
+                            ax.hist(sampled[:, j], bins=35, color="#4C78A8", alpha=0.75)
+                        else:
+                            ax.scatter(sampled[:, j], sampled[:, i], s=6, alpha=0.25, color="#4C78A8", edgecolors="none")
+                        if i == 2:
+                            ax.set_xlabel(col_param)
+                        if j == 0:
+                            ax.set_ylabel(row_param)
+                fig.suptitle(f"Posterior pair plots: {dataset}", y=1.02)
+                fig.savefig(FIG_DIR / f"{path_base}.pdf", bbox_inches="tight")
+                fig.savefig(FIG_DIR / f"{path_base}.png", bbox_inches="tight")
+                plt.show()
+
+            plot_posterior_pairs("simulated", "posterior_pairs_simulated")
+            plot_posterior_pairs("eurusd", "posterior_pairs_eurusd")
             """
         ),
         md(

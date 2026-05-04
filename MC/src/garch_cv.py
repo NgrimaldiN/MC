@@ -252,10 +252,20 @@ def run_rwm_theta(
     prior_sd: np.ndarray = DEFAULT_PRIOR_SD,
     rho: float = DEFAULT_RHO,
 ) -> MCMCResult:
-    """Random-walk Metropolis sampler on theta with diagonal Gaussian proposal."""
+    """Random-walk Metropolis sampler on theta.
+
+    ``proposal_scale`` may be either a vector of marginal proposal standard
+    deviations or a full proposal covariance matrix.
+    """
     rng = np.random.default_rng(seed)
     theta = np.asarray(init_theta, dtype=float).copy()
     proposal_scale = np.asarray(proposal_scale, dtype=float)
+    if proposal_scale.ndim == 1:
+        proposal_chol = None
+    elif proposal_scale.ndim == 2:
+        proposal_chol = np.linalg.cholesky(proposal_scale)
+    else:
+        raise ValueError("proposal_scale must be a vector or covariance matrix")
     current_lp = log_posterior_theta(returns, theta, prior_sd=prior_sd, rho=rho)
     if not np.isfinite(current_lp):
         raise ValueError("Initial theta has non-finite log posterior")
@@ -264,7 +274,10 @@ def run_rwm_theta(
     kept_logpost = []
     accepted = 0
     for step in range(n_steps):
-        proposal = theta + rng.normal(scale=proposal_scale, size=theta.shape)
+        if proposal_chol is None:
+            proposal = theta + rng.normal(scale=proposal_scale, size=theta.shape)
+        else:
+            proposal = theta + proposal_chol @ rng.normal(size=theta.shape)
         proposal_lp = log_posterior_theta(returns, proposal, prior_sd=prior_sd, rho=rho)
         if np.isfinite(proposal_lp) and np.log(rng.uniform()) < proposal_lp - current_lp:
             theta = proposal
@@ -282,6 +295,65 @@ def run_rwm_theta(
         acceptance_rate=accepted / n_steps,
         proposal_scale=proposal_scale,
     )
+
+
+def tune_rwm_covariance(
+    returns: np.ndarray,
+    init_theta: Iterable[float],
+    diagonal_scale: Iterable[float],
+    seed: int = 123,
+    pilot_steps: int = 2500,
+    pilot_burn_in: int = 500,
+    n_rounds: int = 4,
+    round_steps: int = 700,
+    target_low: float = 0.18,
+    target_high: float = 0.35,
+    prior_sd: np.ndarray = DEFAULT_PRIOR_SD,
+    rho: float = DEFAULT_RHO,
+) -> tuple[np.ndarray, list[float], float]:
+    """Tune a full-covariance RWM proposal from a diagonal pilot chain."""
+    init_theta = np.asarray(init_theta, dtype=float)
+    diagonal_scale = np.asarray(diagonal_scale, dtype=float)
+    pilot = run_rwm_theta(
+        returns,
+        init_theta,
+        diagonal_scale,
+        n_steps=pilot_steps,
+        burn_in=pilot_burn_in,
+        thin=1,
+        seed=seed,
+        prior_sd=prior_sd,
+        rho=rho,
+    )
+
+    dim = init_theta.size
+    empirical_cov = np.cov(pilot.theta.T)
+    jitter = 1e-6 * np.eye(dim)
+    base_cov = (2.38**2 / dim) * (empirical_cov + jitter)
+    multiplier = 1.0
+    theta = pilot.theta[-1]
+    rates: list[float] = []
+    for j in range(n_rounds):
+        cov = (multiplier**2) * base_cov
+        result = run_rwm_theta(
+            returns,
+            theta,
+            cov,
+            n_steps=round_steps,
+            burn_in=round_steps - 1,
+            thin=1,
+            seed=seed + 37 * (j + 1),
+            prior_sd=prior_sd,
+            rho=rho,
+        )
+        theta = result.theta[-1]
+        acc = result.acceptance_rate
+        rates.append(acc)
+        if acc < target_low:
+            multiplier *= 0.8
+        elif acc > target_high:
+            multiplier *= 1.2
+    return (multiplier**2) * base_cov, rates, pilot.acceptance_rate
 
 
 def tune_rwm_scale(
