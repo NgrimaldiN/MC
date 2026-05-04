@@ -1,0 +1,15 @@
+\frametitle{Q4 -- Dependence mitigation (code extract)}
+\begin{lstlisting}[style=py]
+def apply_thinning(chain, k):
+    return chain[::k]
+
+def apply_batching(chain, batch_size):
+    n_batches = len(chain) // batch_size
+    truncated = chain[:n_batches * batch_size]
+    return truncated.reshape(n_batches, batch_size, 3).mean(axis=1)
+\end{lstlisting}
+\vspace{-0.5em}
+\begin{itemize}
+  \item Thinning lowers autocorrelation by subsampling.
+  \item Batching averages local dependence and approximates iid blocks.
+\end{itemize}
