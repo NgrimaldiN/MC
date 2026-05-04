@@ -1,0 +1,91 @@
+chain,parameter,series,lag1_acf
+1,omega_1,raw chain,0.8573781289684791
+1,omega_1,thinned every 8,0.27941322433709354
+1,omega_1,block means size 80,-0.01953609501216838
+1,omega_2,raw chain,0.8352353443331008
+1,omega_2,thinned every 8,0.22770845812482543
+1,omega_2,block means size 80,-0.017107222397720907
+1,omega_3,raw chain,0.8306733781567428
+1,omega_3,thinned every 8,0.21650721620801783
+1,omega_3,block means size 80,-0.00013981728939527568
+2,omega_1,raw chain,0.8703923263162348
+2,omega_1,thinned every 8,0.37665628240415017
+2,omega_1,block means size 80,0.06819728120640986
+2,omega_2,raw chain,0.8160826896702077
+2,omega_2,thinned every 8,0.2456687655621326
+2,omega_2,block means size 80,0.02779106376477773
+2,omega_3,raw chain,0.8513452497825554
+2,omega_3,thinned every 8,0.3431814484261864
+2,omega_3,block means size 80,0.14816757431689218
+3,omega_1,raw chain,0.8592098358383671
+3,omega_1,thinned every 8,0.32939538993529716
+3,omega_1,block means size 80,-0.09288693049528891
+3,omega_2,raw chain,0.8292261745178203
+3,omega_2,thinned every 8,0.25700252883735764
+3,omega_2,block means size 80,-0.1061411236980167
+3,omega_3,raw chain,0.8437523540740609
+3,omega_3,thinned every 8,0.33121876761306057
+3,omega_3,block means size 80,-0.11929830511955439
+4,omega_1,raw chain,0.8494473871272499
+4,omega_1,thinned every 8,0.26652971682734405
+4,omega_1,block means size 80,-0.291235955574085
+4,omega_2,raw chain,0.8375322746157562
+4,omega_2,thinned every 8,0.3100093791927054
+4,omega_2,block means size 80,0.04374746302675518
+4,omega_3,raw chain,0.8409563002968122
+4,omega_3,thinned every 8,0.2796457002713765
+4,omega_3,block means size 80,-0.1875292956052999
+5,omega_1,raw chain,0.8611155171758318
+5,omega_1,thinned every 8,0.26566625225551543
+5,omega_1,block means size 80,-0.014274504126319807
+5,omega_2,raw chain,0.8171072855476448
+5,omega_2,thinned every 8,0.1712901442975125
+5,omega_2,block means size 80,0.2245579704358529
+5,omega_3,raw chain,0.8404811031063756
+5,omega_3,thinned every 8,0.21884644514645865
+5,omega_3,block means size 80,0.09754378207513395
+6,omega_1,raw chain,0.8640130439176894
+6,omega_1,thinned every 8,0.2921446104997691
+6,omega_1,block means size 80,-0.03734940027675515
+6,omega_2,raw chain,0.8263218875677434
+6,omega_2,thinned every 8,0.27181943890988713
+6,omega_2,block means size 80,-0.05284144525424997
+6,omega_3,raw chain,0.858995578836739
+6,omega_3,thinned every 8,0.3302847007490219
+6,omega_3,block means size 80,-0.13757512447403902
+7,omega_1,raw chain,0.8900990782084748
+7,omega_1,thinned every 8,0.38539204624696327
+7,omega_1,block means size 80,0.25749691291293275
+7,omega_2,raw chain,0.8202861240529324
+7,omega_2,thinned every 8,0.15107971013619412
+7,omega_2,block means size 80,0.06488040039699407
+7,omega_3,raw chain,0.866599551072338
+7,omega_3,thinned every 8,0.3314545984788828
+7,omega_3,block means size 80,0.2588373211137113
+8,omega_1,raw chain,0.8589444952564256
+8,omega_1,thinned every 8,0.28319053021358487
+8,omega_1,block means size 80,0.03153738521005354
+8,omega_2,raw chain,0.825047574227056
+8,omega_2,thinned every 8,0.2520302956652889
+8,omega_2,block means size 80,-0.0572538368237215
+8,omega_3,raw chain,0.8507957923100666
+8,omega_3,thinned every 8,0.2681533731847108
+8,omega_3,block means size 80,0.05315904326920372
+9,omega_1,raw chain,0.857667060648489
+9,omega_1,thinned every 8,0.28887375827772177
+9,omega_1,block means size 80,-0.22783111408237017
+9,omega_2,raw chain,0.8076355313391659
+9,omega_2,thinned every 8,0.21008354382979405
+9,omega_2,block means size 80,0.0299762081157526
+9,omega_3,raw chain,0.834630924665726
+9,omega_3,thinned every 8,0.25258361388124845
+9,omega_3,block means size 80,-0.24601489110837566
+10,omega_1,raw chain,0.8325043711591125
+10,omega_1,thinned every 8,0.22278487750945086
+10,omega_1,block means size 80,0.11205643226585359
+10,omega_2,raw chain,0.8153681194246888
+10,omega_2,thinned every 8,0.195096187102468
+10,omega_2,block means size 80,-0.015426362805562567
+10,omega_3,raw chain,0.7879294169804603
+10,omega_3,thinned every 8,0.10977014754649887
+10,omega_3,block means size 80,0.1818567864966654

@@ -1,0 +1,27 @@
+{
+  "true_omega": [
+    0.2,
+    0.2,
+    0.5
+  ],
+  "n_obs": 600,
+  "n_chains": 10,
+  "n_steps": 5000,
+  "burn_in": 1500,
+  "thin_for_ols": 8,
+  "block_size": 80,
+  "diagonal_tuning_acceptance": [
+    0.538,
+    0.494,
+    0.406,
+    0.308
+  ],
+  "covariance_pilot_acceptance": 0.305,
+  "covariance_tuning_acceptance": [
+    0.316,
+    0.306,
+    0.308
+  ],
+  "chain_acceptance_mean": 0.31812,
+  "elapsed_seconds": 115.5078432559967
+}
