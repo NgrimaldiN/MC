@@ -12,31 +12,37 @@
     <div class="reveal">
       <div class="slides">
         <section class="slide article-slide" data-part="0">
-          <div class="eyebrow">Part 0 · Article</div>
+          <div class="eyebrow">Part 0 - Article</div>
+          <h1>Zero variance Markov chain Monte Carlo for Bayesian estimators</h1>
+          <p class="source-line">
+            A. Mira, R. Solgi and D. Imparato, <em>Statistics and Computing</em>, 2013.
+          </p>
+
           <div class="article-grid">
-            <div class="article-main">
-              <h1>Zero-variance control variates for MCMC</h1>
-              <p class="subtitle">
-                The article gives a practical way to reduce the numerical noise of posterior
-                averages by using the score of the target density.
+            <div>
+              <h3>Question of the paper</h3>
+              <p class="plain-text">
+                How can we reduce the Monte Carlo error of posterior averages without changing
+                the target distribution?
               </p>
-              <div class="source-line">
-                Mira, Solgi &amp; Imparato · <em>Statistics and Computing</em> · 2013
-              </div>
             </div>
-            <div class="mechanism" aria-label="Method sketch">
-              <div class="node">MCMC draws</div>
-              <div class="arrow">→</div>
-              <div class="node">score<br /><span>∇ log π</span></div>
-              <div class="arrow">→</div>
-              <div class="node accent">lower-variance<br />estimate</div>
+            <div>
+              <h3>Main idea used here</h3>
+              <p class="formula">
+                \[
+                  \widetilde f(x) = f(x) + a^\top z(x),
+                  \qquad
+                  z(x)=-\frac12\nabla\log\pi(x)
+                \]
+              </p>
             </div>
           </div>
-          <div class="takeaway-strip">
-            <p><span>Problem</span> posterior means from a random-walk chain are noisy.</p>
-            <p><span>Idea</span> add a mean-zero correction built from the gradient.</p>
-            <p><span>Our project</span> test it on a Bayesian GARCH(1,1) model.</p>
-          </div>
+
+          <ul class="article-points">
+            <li>The correction has expectation zero under the posterior.</li>
+            <li>The coefficient \(a\) can be estimated by a regression on the MCMC sample.</li>
+            <li>We apply this idea to posterior means in a Bayesian GARCH(1,1) model.</li>
+          </ul>
           <aside class="notes">
             Keep this short orally: the paper is not about GARCH specifically; GARCH is the
             numerical example we reproduce. The essential message is that once we know the
@@ -49,7 +55,7 @@
           <div class="eyebrow">Question 1</div>
           <h2>Build the posterior sampler</h2>
           <div class="placeholder">
-            <p class="slot">Final content to insert from notebook</p>
+            <p class="slot">To add from final notebook</p>
             <ul>
               <li>GARCH(1,1) model and posterior target</li>
               <li>Random-walk Metropolis design</li>
@@ -64,9 +70,9 @@
 
         <section class="slide question-slide" data-part="2">
           <div class="eyebrow">Question 2</div>
-          <h2>Use the paper’s first-order control variate</h2>
+          <h2>Use the paper's first-order control variate</h2>
           <div class="placeholder">
-            <p class="slot">Final content to insert from notebook</p>
+            <p class="slot">To add from final notebook</p>
             <ul>
               <li>Gradient of the GARCH log-posterior</li>
               <li>Regression formula for the coefficient</li>
@@ -83,7 +89,7 @@
           <div class="eyebrow">Question 3</div>
           <h2>Scale up the control dictionary</h2>
           <div class="placeholder">
-            <p class="slot">Final content to insert from notebook</p>
+            <p class="slot">To add from final notebook</p>
             <ul>
               <li>Polynomial controls beyond degree 1</li>
               <li>Why naive OLS becomes costly or unstable</li>
@@ -99,7 +105,7 @@
           <div class="eyebrow">Question 4</div>
           <h2>Regression is fitted on dependent samples</h2>
           <div class="placeholder">
-            <p class="slot">Final content to insert from Q4 analysis</p>
+            <p class="slot">To add from final notebook / Q4 analysis</p>
             <ul>
               <li>OLS interpretation is not iid</li>
               <li>Repeated chains and batch means for numerical error</li>
@@ -123,11 +129,11 @@
         height: 720,
         margin: 0.045,
         hash: true,
-        controls: true,
-        progress: true,
+        controls: false,
+        progress: false,
         slideNumber: "c/t",
-        transition: "fade",
-        backgroundTransition: "fade",
+        transition: "none",
+        backgroundTransition: "none",
         center: false,
         pdfMaxPagesPerSlide: 1,
         katex: {
