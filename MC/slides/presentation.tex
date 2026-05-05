@@ -11,6 +11,8 @@
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{amssymb} % <-- À AJOUTER (pour les symboles mathématiques)
+\usepackage{bm}      % <-- À AJOUTER (pour mettre \omega en gras)
 
 \title{Control Variates for a GARCH Model}
 \subtitle{Monte Carlo Project -- Oral Support}
@@ -164,26 +166,37 @@ def metropolis_hastings(r, iters=10000, scale=1.0):
 	to reduce estimator variance.
 \end{frame}
 
-\begin{frame}{Q2 -- Math for degree-1 control variates}
+\begin{frame}{Q2 -- The Zero-Variance Principle (Theory)}
 	\small
-	Target quantity:
+	\textbf{The Goal:} Estimate $\mu_f = \mathbb{E}_{\pi}[f(\bm{\omega})]$ with minimal variance. \\[0.5em]
+
+	\textbf{The Ideal Solution (Mira et al., 2013):}\\
+	We look for a corrected function $\tilde{f}$ such that its variance is strictly zero:
 	\[
-		\mu_f=\mathbb E_{\pi}[f(\omega)].
+		\tilde{f}(\bm{\omega}) = f(\bm{\omega}) + \frac{\cal{H}\psi(\bm{\omega})}{\sqrt{\pi(\bm{\omega})}} = \mu_f \quad \implies \quad \sigma^2(\tilde{f}) = 0
 	\]
-	First-order corrected estimator:
+	This requires solving the fundamental equation (where $\mathcal{H}$ is a Hamiltonian operator):
 	\[
-		\tilde f(\omega)=f(\omega)+a^\top z(\omega),
-		\qquad
-		z(\omega)\approx -\tfrac12\nabla \log \pi(\omega\mid r).
+		\cal{H}\psi(\bm{\omega}) = -\sqrt{\pi(\bm{\omega})}[f(\bm{\omega}) - \mu_f]
 	\]
-	Choose \(a\) by regression over MCMC samples:
+	\textbf{The Catch:} This exact equation is unsolvable because it requires knowing $\mu_f$ (the very integral we are trying to compute!).
+\end{frame}
+
+\begin{frame}{Q2 -- First-Order Approximation (Practice)}
+	\small
+	Since the exact $\psi(\bm{\omega})$ is unattainable, we approximate it using polynomials.\\[0.5em]
+
+	\textbf{Degree-1 Polynomials:}
+	Using a linear trial function, the correction simplifies to using the gradient of the log-posterior as a control variate:
 	\[
-		f(\omega^{(i)})=\beta_0 + b^\top z(\omega^{(i)})+\varepsilon_i,
-		\quad a=-b.
+		\bm{z}(\bm{\omega}) = -\frac{1}{2}\nabla \log \pi(\bm{\omega} \mid \bm{r})
 	\]
+	The corrected estimator becomes a simple linear equation:
 	\[
-		\hat\mu_f^{\,cv}=\frac1N\sum_{i=1}^N \tilde f(\omega^{(i)}).
+		\tilde{f}(\bm{\omega}) = f(\bm{\omega}) + \bm{a}^\top \bm{z}(\bm{\omega})
 	\]
+	\textbf{The Machine Learning Bridge:}\\
+	We find the optimal vector $\bm{a}$ by fitting a standard Ordinary Least Squares (OLS) regression on our MCMC samples. The intercept gives exactly $\hat{\mu}_f^{\,cv}$.
 \end{frame}
 
 \begin{frame}[fragile]{Q2 -- First-order ZV control variates}
@@ -226,7 +239,66 @@ f_corrected = Y - X @ reg.coef_
 	then adapt the Lasso-based approach\\[0.2em]
 	to handle feature explosion.
 \end{frame}
+% --- SECTION 3 : LE LASSO ---
+\section{High-Dimensional Control Variates (LSLASSO)}
+% --- SECTION 3 : LE LASSO (Q3) ---
+\begin{frame}{Q3 -- The Second-Order Basis (Matrix Formulation)}
+	\small
+	Instead of writing the control variates term by term, we can express the Degree-2 correction elegantly using linear algebra.\\[0.8em]
 
+	\textbf{The Corrected Estimator:}
+	\[
+		\tilde{f}(\bm{\omega}) = f(\bm{\omega}) + \underbrace{\bm{a}^\top \bm{z}(\bm{\omega})}_{\text{Degree 1}} + \underbrace{\bm{\omega}^\top \bm{B} \bm{z}(\bm{\omega}) - \frac{1}{2}\text{Tr}(\bm{B})}_{\text{Degree 2}}
+	\]
+
+	\textbf{The Components:}
+	\begin{itemize}
+		\item $\bm{z}(\bm{\omega}) = -\frac{1}{2}\nabla \log \pi(\bm{\omega} \mid \bm{r})$ is the gradient vector.
+		\item $\bm{a} \in \mathbb{R}^d$ is the coefficient vector for the linear terms.
+		\item $\bm{B} \in \mathbb{R}^{d \times d}$ is the coefficient matrix for the interaction terms.
+	\end{itemize}
+	\vspace{0.8em}
+
+\end{frame}
+
+\begin{frame}{Q3 -- LSLASSO: Selection + Estimation}
+	\small
+	To handle this explosion, we follow the \textbf{LSLASSO} strategy (Leluc et al., 2021).\\[0.8em]
+
+	\textbf{Step 1: Selection (The Lasso)}
+	We use the $\ell_1$ penalty to "filter" the variables:
+	\[
+		\hat{\bm{\beta}} = \arg\min_{\bm{\beta}} \frac{1}{2N} \|\bm{y} - \bm{X}\bm{\beta}\|_2^2 + \lambda \|\bm{\beta}\|_1
+	\]
+	The Lasso automatically sets the coefficients of useless polynomial terms to \textbf{zero}.
+	\\[0.8em]
+	\textbf{Step 2: Estimation (Post-Lasso OLS)}
+	Lasso coefficients are biased (shrinkage). To get an unbiased estimate, we perform a final OLS using \textbf{only} the variables selected by the Lasso.
+\end{frame}
+
+\begin{frame}[fragile]{Q3 -- Robust Tuning: Dichotomic Search}
+	\small
+	\textbf{Why not use standard Cross-Validation (CV)?}
+	MCMC samples are \textbf{autocorrelated}. Standard CV assumes independent data and would lead to a poor choice of the penalty $\lambda$.
+	\\[0.8em]
+	\textbf{The Solution: Algorithm 2 (Dichotomic Search)}
+	We tune $\lambda$ to target a specific "sparsity" (number of active variables $l \approx c\sqrt{N}$).
+
+	\begin{lstlisting}[style=py]
+# Search for the penalty that keeps the "right" number of features
+alpha = alpha_initial
+for i in range(max_iter):
+    lasso = Lasso(alpha=alpha).fit(X_design, Y)
+    active_features = np.sum(lasso.coef_ != 0)
+    
+    if active_features < target_low:
+        alpha /= 2.0  # Too sparse: decrease penalty
+    elif active_features > target_high:
+        alpha *= 2.0  # Too many features: increase penalty
+    else:
+        break # Sparsity is optimal
+    \end{lstlisting}
+\end{frame}
 \begin{frame}{Q3 -- Degree-2 controls and Lasso}
 	\small
 	Degree-2 basis (schematically):
@@ -250,18 +322,20 @@ f_corrected = Y - X @ reg.coef_
 
 \begin{frame}[fragile]{Q3 -- Why Lasso? (code extract)}
 	\begin{lstlisting}[style=py]
-# Degree-2 design: 3 first-order + 9 second-order terms
-features = []
-for i in range(3):
-    features.append(Z_run[:, i])
-for i in range(3):
-    for j in range(3):
-        delta = 0.5 if i == j else 0.0
-        features.append(W_run[:, j] * Z_run[:, i] - delta)
-X_design = np.column_stack(features)
+# Instead of slow/biased LassoCV, use the paper's Dichotomic Search
+# Target: keep l_hat variables between c1*sqrt(N) and c2*sqrt(N)
 
-lasso = LassoCV(cv=5).fit(X_design, Y)
-Y_corr = Y - X_design @ lasso.coef_
+alpha_penalty = alpha_max
+for _ in range(max_iter):
+    lasso = Lasso(alpha=alpha_penalty).fit(X_design, Y)
+    l_hat = count_non_zero(lasso.coef_)
+    
+    if l_hat < lower_bound:
+        alpha_penalty /= 2.0  # Keep more variables
+    elif l_hat > upper_bound:
+        alpha_penalty *= 2.0  # Keep fewer variables
+    else:
+        break # Optimal sparsity reached
 \end{lstlisting}
 	\vspace{-0.5em}
 	\begin{itemize}
