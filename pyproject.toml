@@ -1,0 +1,13 @@
+[project]
+name = "control-variates-garch"
+version = "0.1.0"
+description = "Zero-variance control variates for Bayesian GARCH(1,1) estimation"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "nbformat",
+    "nbconvert",
+    "ipykernel",
+]

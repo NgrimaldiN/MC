@@ -1,14 +1,12 @@
-"""Question 4: regression control variates on dependent MCMC output.
+"""Regression control variates on dependent MCMC output.
 
-This script is deliberately focused on the bonus question.  It reuses the
-same idea as the draft notebook in Downloads/mc-2.ipynb: run several
-Metropolis-Hastings chains, compute the usual posterior mean and the
-zero-variance regression estimator for each chain, and compare variability
-across independent runs.
+This script studies the impact of MCMC dependence on the zero-variance
+control-variate regression.  It runs several Metropolis-Hastings chains,
+computes the usual posterior mean and the zero-variance regression estimator
+for each chain, and compares variability across independent runs.
 
-The additional Q4 point is that the regression rows are MCMC draws, not iid
-observations.  We therefore compare the naive same-chain OLS fit with three
-simple fixes:
+The regression rows are MCMC draws, not iid observations.  We therefore
+compare the naive same-chain OLS fit with three simple fixes:
 
 1. fit beta on the first half of the chain and estimate the mean on the second
    half;
@@ -35,9 +33,8 @@ sys.path.insert(0, str(SRC))
 import garch_cv as g  # noqa: E402
 
 
-OUT = ROOT / "q4"
-FIG_DIR = OUT / "figures"
-RESULT_DIR = OUT / "results"
+FIG_DIR = ROOT / "figures"
+RESULT_DIR = ROOT / "results"
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 RESULT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -94,7 +91,7 @@ def split_chain_estimate(y: np.ndarray, controls: np.ndarray) -> tuple[float, np
     return float(controlled_eval.mean()), controlled_eval
 
 
-def make_q4_estimates(theta: np.ndarray, omega: np.ndarray, returns: np.ndarray) -> tuple[pd.DataFrame, pd.DataFrame]:
+def make_mcmc_regression_estimates(theta: np.ndarray, omega: np.ndarray, returns: np.ndarray) -> tuple[pd.DataFrame, pd.DataFrame]:
     grad = g.grad_log_posterior_theta_batch(returns, theta)
     controls, _, _ = g.zv_controls(theta, grad, degree=1)
     control_blocks = block_means(controls, BLOCK_SIZE)
@@ -187,7 +184,7 @@ def main() -> None:
         if representative is None:
             representative = result
         acceptance_rates.append(result.acceptance_rate)
-        estimates, acf = make_q4_estimates(result.theta, result.omega, returns)
+        estimates, acf = make_mcmc_regression_estimates(result.theta, result.omega, returns)
         estimates.insert(0, "chain", chain_id)
         acf.insert(0, "chain", chain_id)
         all_estimates.append(estimates)
@@ -196,8 +193,8 @@ def main() -> None:
 
     estimates = pd.concat(all_estimates, ignore_index=True)
     acf_table = pd.concat(all_acf, ignore_index=True)
-    estimates.to_csv(RESULT_DIR / "q4_estimates_by_chain.csv", index=False)
-    acf_table.to_csv(RESULT_DIR / "q4_acf_by_chain.csv", index=False)
+    estimates.to_csv(RESULT_DIR / "mcmc_regression_estimates_by_chain.csv", index=False)
+    acf_table.to_csv(RESULT_DIR / "mcmc_regression_acf_by_chain.csv", index=False)
 
     summary = (
         estimates.groupby(["parameter", "method"], as_index=False)
@@ -215,16 +212,16 @@ def main() -> None:
     summary = summary.merge(mc_var, on="parameter", how="left")
     summary["variance_ratio_vs_mc"] = summary["mc_variance"] / summary["variance_across_chains"]
     summary.loc[summary["method"] == "MC", "variance_ratio_vs_mc"] = 1.0
-    summary.to_csv(RESULT_DIR / "q4_summary.csv", index=False)
+    summary.to_csv(RESULT_DIR / "mcmc_regression_summary.csv", index=False)
 
     acf_summary = (
         acf_table.groupby(["parameter", "series"], as_index=False)
         .agg(mean_lag1_acf=("lag1_acf", "mean"), sd_lag1_acf=("lag1_acf", "std"))
     )
-    acf_summary.to_csv(RESULT_DIR / "q4_acf_summary.csv", index=False)
+    acf_summary.to_csv(RESULT_DIR / "mcmc_regression_acf_summary.csv", index=False)
 
-    write_latex_table(summary, RESULT_DIR / "q4_summary.tex")
-    write_latex_table(acf_summary, RESULT_DIR / "q4_acf_summary.tex")
+    write_latex_table(summary, RESULT_DIR / "mcmc_regression_summary.tex")
+    write_latex_table(acf_summary, RESULT_DIR / "mcmc_regression_acf_summary.tex")
 
     metadata = {
         "true_omega": TRUE_OMEGA.tolist(),
@@ -240,7 +237,7 @@ def main() -> None:
         "chain_acceptance_mean": float(np.mean(acceptance_rates)),
         "elapsed_seconds": time.time() - started,
     }
-    (RESULT_DIR / "q4_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    (RESULT_DIR / "mcmc_regression_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
     methods = ["MC", "ZV naive OLS", "ZV split chain", "ZV thinned OLS", "ZV block OLS"]
     colors = ["#4C78A8", "#F58518", "#54A24B", "#B279A2", "#E45756"]
@@ -260,9 +257,9 @@ def main() -> None:
         axes[j].tick_params(axis="x", rotation=25)
         if j == 0:
             axes[j].legend(frameon=False, fontsize=8)
-    fig.suptitle("Q4: repeated-chain estimates under dependent MCMC output", y=1.02)
-    fig.savefig(FIG_DIR / "q4_boxplots.pdf", bbox_inches="tight")
-    fig.savefig(FIG_DIR / "q4_boxplots.png", bbox_inches="tight")
+    fig.suptitle("Repeated-chain estimates under dependent MCMC output", y=1.02)
+    fig.savefig(FIG_DIR / "mcmc_regression_boxplots.pdf", bbox_inches="tight")
+    fig.savefig(FIG_DIR / "mcmc_regression_boxplots.png", bbox_inches="tight")
     plt.close(fig)
 
     fig, axes = plt.subplots(1, 3, figsize=(13.0, 3.8), constrained_layout=True)
@@ -275,8 +272,8 @@ def main() -> None:
         axes[j].set_xticks(np.arange(len(methods)))
         axes[j].set_xticklabels(methods, rotation=25, ha="right")
         axes[j].set_ylabel("variance ratio vs MC")
-    fig.savefig(FIG_DIR / "q4_variance_ratios.pdf", bbox_inches="tight")
-    fig.savefig(FIG_DIR / "q4_variance_ratios.png", bbox_inches="tight")
+    fig.savefig(FIG_DIR / "mcmc_regression_variance_ratios.pdf", bbox_inches="tight")
+    fig.savefig(FIG_DIR / "mcmc_regression_variance_ratios.png", bbox_inches="tight")
     plt.close(fig)
 
     fig, axes = plt.subplots(1, 3, figsize=(12.0, 3.6), constrained_layout=True)
@@ -289,8 +286,8 @@ def main() -> None:
         axes[j].set_xticks(np.arange(len(series_order)))
         axes[j].set_xticklabels(["raw", "thinned", "blocks"], rotation=0)
         axes[j].set_ylabel("mean lag-1 autocorrelation")
-    fig.savefig(FIG_DIR / "q4_acf_reduction.pdf", bbox_inches="tight")
-    fig.savefig(FIG_DIR / "q4_acf_reduction.png", bbox_inches="tight")
+    fig.savefig(FIG_DIR / "mcmc_regression_acf_reduction.pdf", bbox_inches="tight")
+    fig.savefig(FIG_DIR / "mcmc_regression_acf_reduction.png", bbox_inches="tight")
     plt.close(fig)
 
     if representative is not None:
@@ -304,8 +301,8 @@ def main() -> None:
             axes[j].set_title(f"running mean for {param}")
             axes[j].set_ylabel("mean")
         axes[-1].set_xlabel("MH iteration after burn-in")
-        fig.savefig(FIG_DIR / "q4_running_mean.pdf", bbox_inches="tight")
-        fig.savefig(FIG_DIR / "q4_running_mean.png", bbox_inches="tight")
+        fig.savefig(FIG_DIR / "mcmc_regression_running_mean.pdf", bbox_inches="tight")
+        fig.savefig(FIG_DIR / "mcmc_regression_running_mean.png", bbox_inches="tight")
         plt.close(fig)
 
     print(summary)

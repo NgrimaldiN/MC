@@ -1,9 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
 .ipython/
 .jupyter_runtime/
-.miktex-log/
-src/__pycache__/
-scripts/__pycache__/
-node_modules/
+
+# LaTeX
 *.aux
 *.log
 *.out
+*.nav
+*.snm
+*.toc
+*.vrb
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+.miktex-log/
+
+# OS
+.DS_Store
+
+# Editor
+.opencode/
+.vscode/
+.idea/
+
+# Node
+node_modules/

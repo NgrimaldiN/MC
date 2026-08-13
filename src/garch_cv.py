@@ -594,3 +594,26 @@ def prepare_returns_from_prices(prices: np.ndarray) -> np.ndarray:
     """Compute percentage log-returns from a price series."""
     prices = np.asarray(prices, dtype=float)
     return 100.0 * np.diff(np.log(prices))
+
+
+def initial_omega_for_returns(
+    returns: np.ndarray, alpha: float = 0.08, beta: float = 0.88
+) -> np.ndarray:
+    """Moment-based GARCH starting values from the unconditional variance."""
+    returns = np.asarray(returns, dtype=float)
+    unconditional_var = np.var(returns, ddof=1)
+    omega_1 = max(unconditional_var * (1.0 - alpha - beta), 1e-4)
+    return np.array([omega_1, alpha, beta])
+
+
+def autocorrelation(x: np.ndarray, max_lag: int = 35) -> np.ndarray:
+    """Sample autocorrelation function up to *max_lag*."""
+    x = np.asarray(x, dtype=float)
+    x = x - x.mean()
+    denom = np.dot(x, x)
+    if denom <= 0:
+        return np.zeros(max_lag + 1)
+    return np.array(
+        [1.0]
+        + [np.dot(x[:-lag], x[lag:]) / denom for lag in range(1, max_lag + 1)]
+    )
